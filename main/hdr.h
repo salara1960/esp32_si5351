@@ -18,5 +18,8 @@
 #endif
 
 #define SET_IRED
+//#define SET_KBD
+#define SET_EC11
+
 
 

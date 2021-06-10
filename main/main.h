@@ -179,8 +179,8 @@
 #define GPIO_INPUT_KEY   GPIO_NUM_25 // freq step
 #define GPIO_INPUT_MINUS GPIO_NUM_26 // freq -
 #define GPIO_INPUT_PLUS  GPIO_NUM_27 // freq +
-#define GPIO_INPUT_MENU  GPIO_NUM_33 // menu
-#define GPIO_INPUT_PIN_SEL  ((1ULL<<GPIO_INPUT_KEY) | (1ULL<<GPIO_INPUT_MINUS) | (1ULL<<GPIO_INPUT_PLUS) | (1ULL<<GPIO_INPUT_MENU))
+//#define GPIO_INPUT_MENU  GPIO_NUM_33 // menu
+#define GPIO_INPUT_PIN_SEL  ((1ULL<<GPIO_INPUT_KEY) | (1ULL<<GPIO_INPUT_MINUS) | (1ULL<<GPIO_INPUT_PLUS))// | (1ULL<<GPIO_INPUT_MENU))
 #define ESP_INTR_FLAG_DEFAULT 0
 
 
@@ -322,7 +322,7 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
     #define SIPORT_CLOCK_HZ 400000
 
     #define TOTAL_STEP 7
-    #define MIN_FREQ 8000
+    #define MIN_FREQ 4000
     #define MAX_FREQ 150000000
 
     //{1, 10, 100, 1000, 10000, 100000, 1000000}

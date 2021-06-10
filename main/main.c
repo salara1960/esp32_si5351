@@ -75,10 +75,13 @@ char *sec_to_str_time(char *stx);
 #ifdef SET_SI5351
     static const char *TAGGEN = "GEN";
 
+    const uint64_t txFreqDef = 1000000;
+
     const uint32_t allStep[TOTAL_STEP] = {1, 10, 100, 1000, 10000, 100000, 1000000};//in Hz
     uint8_t idxStep = s1KHz;//3;
     uint32_t curFreq = 0;
 
+    static uint64_t frc = 0;
     static uint64_t txFreq = 0;//1000000 * 100;//(14095600 + 1500 - 50) * 100;
     static uint64_t txStep = 0;//10000 * 100;//(uint64_t)((12000 * 100) / 8192);//allStep[idxStep] * 100;
 #endif
@@ -114,14 +117,15 @@ char *sec_to_str_time(char *stx);
     //
 #endif
 
+bool menu_mode = false;
 
 //----------------------------   KBD CTRL   --------------------------------------
+#ifdef SET_KBD
 
 static const char *TAGKBD = "KBD";
 
 static xQueueHandle ec11_evt_queue = NULL;
 uint32_t key_num = 0;
-bool menu_mode = false;
 
 
 //
@@ -144,7 +148,7 @@ static void IRAM_ATTR gpio_isr_handler(void *arg)
     }
 }
 //
-void ec11Init()
+void kbdInit()
 {
 
     ec11_evt_queue = xQueueCreate(32, sizeof(uint32_t));
@@ -168,6 +172,102 @@ void ec11Init()
 
 }
 //------------------------------------------------------------------------------------
+#endif
+
+//----------------------------   EC11 ENCODER CTRL  --------------------------------------
+#ifdef SET_EC11
+
+static const char *TAGENC = "ENC";
+
+static xQueueHandle ec11_evt_queue = NULL;
+uint32_t key_num = 0;
+
+
+volatile uint32_t keyCounter = 0;
+
+volatile int lastEncoded = 0;
+volatile long encoderValue = 0;
+long enc_ = 0, enc_last = 0;
+long lastencoderValue = 0;
+int lastMSB = 0;
+int lastLSB = 0;
+uint32_t encs = 0;
+
+portMUX_TYPE gpioMux = portMUX_INITIALIZER_UNLOCKED;
+
+static void IRAM_ATTR gpio_isr_handler(void *arg)
+{
+    portENTER_CRITICAL_ISR(&gpioMux);
+
+    uint32_t gpio_num = (uint32_t)arg;
+    uint8_t yes = 0;
+    switch (gpio_num) {
+        case GPIO_INPUT_KEY:
+            if (!gpio_get_level(gpio_num)) {
+                //if (!tiks) {
+                    keyCounter++;
+                    yes = 1;//xQueueSendFromISR(ec11_evt_queue, &gpio_num, NULL); 
+                //    tiks = get_tmr(_250ms);
+                //}
+            }
+        break;
+        case GPIO_INPUT_PLUS:
+        case GPIO_INPUT_MINUS:
+        {
+            int MSB = gpio_get_level(GPIO_INPUT_PLUS); //MSB = most significant bit
+            int LSB = gpio_get_level(GPIO_INPUT_MINUS); //LSB = least significant bit
+            //
+            int encoded = (MSB << 1) | LSB; //converting the 2 pin value to single number
+            int sum     = (lastEncoded << 2) | encoded; //adding it to the previous encoded value
+            //    
+            //if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encoderValue++;
+            //if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encoderValue--;
+            if (sum == 0xd || sum == 4 || sum == 2 || sum == 0xb) encoderValue++;
+            else
+            if (sum == 0xe || sum == 7 || sum == 1 || sum == 8)   encoderValue--;
+
+            lastEncoded = encoded;
+            //if (!encs) {
+                //if (encoderValue != lastencoderValue) {
+                    yes = 1;
+                    //encs = get_tmr(_200ms);
+                //}    
+            //}
+        }    
+        break;
+    }
+    if (yes) xQueueSendFromISR(ec11_evt_queue, &gpio_num, NULL);
+
+    portEXIT_CRITICAL_ISR(&gpioMux);
+}
+//
+void ec11Init()
+{
+
+    ec11_evt_queue = xQueueCreate(32, sizeof(uint32_t));
+
+    gpio_config_t ec11_conf = {
+        .intr_type = GPIO_PIN_INTR_ANYEDGE,//GPIO_PIN_INTR_POSEDGE;
+        .pin_bit_mask = GPIO_INPUT_PIN_SEL,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = 1
+    };    
+    gpio_config(&ec11_conf);
+
+    //install gpio isr service
+    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
+    
+    //hook isr handler for specific gpio pin
+    gpio_isr_handler_add(GPIO_INPUT_KEY, gpio_isr_handler, (void *)GPIO_INPUT_KEY);
+    gpio_isr_handler_add(GPIO_INPUT_MINUS, gpio_isr_handler, (void *)GPIO_INPUT_MINUS);
+    gpio_isr_handler_add(GPIO_INPUT_PLUS, gpio_isr_handler, (void *)GPIO_INPUT_PLUS);
+
+}
+//------------------------------------------------------------------------------------
+
+#endif
+
+//------------------------------------------------------------------------------------
 
 //***************************************************************************************************************
 
@@ -186,9 +286,9 @@ static void periodic_timer_callback(void* arg)
 {
     varta++; //10ms period
 
-    if (tiks) {
-        if (check_tmr(tiks)) tiks = 0;
-    }
+    //if (tiks) {
+    //    if (check_tmr(tiks)) tiks = 0;
+    //}
 
     secFlag--;
     if (!secFlag) {
@@ -780,7 +880,7 @@ void app_main()
         ets_printf("[%s] Init i2c port #%d Error !\n", TAGGEN, SI5351_PORT);
     } else {
         idxStep = s1KHz;//3;//1000 Hz
-        txFreq = 1000000;// 1 MHz
+        txFreq = txFreqDef;//1000000;// 1 MHz
         txStep = (uint64_t)(allStep[idxStep]);
 
         
@@ -853,7 +953,12 @@ void app_main()
 #endif
 
 
+#if defined(SET_KBD)
+    kbdInit();// Init keyboard
+#elif defined(SET_EC11)
     ec11Init();// Init EC11Encoder
+    uint32_t tmr_ec11 = 0;
+#endif     
 
 
 
@@ -939,13 +1044,14 @@ void app_main()
                                 //mkLineCenter(stk, FONT_WIDTH);
                                 ssd1306_text_xy(stk, 1, 7, false);
                             #endif
-                            ets_printf("[%s] Set step %u Hz\n", TAGKBD, allStep[idxStep]);    
+                            ets_printf("[%s] Set step %u Hz\n", TAGENC, allStep[idxStep]);    
                         } else {
                             
                         }
                     break;
                     case GPIO_INPUT_PLUS:
                     case GPIO_INPUT_MINUS:
+#if defined(SET_KBD)
                         if (!menu_mode) {
                             if (key_num == GPIO_INPUT_PLUS) {
                                 if (txFreq != SI5351_CLKOUT_MAX_FREQ) {
@@ -976,7 +1082,37 @@ void app_main()
                         } else {
                             
                         }
+#elif  defined(SET_EC11)
+                        if (!menu_mode) {
+                            if (encoderValue != lastencoderValue) {
+                                enc_ = encoderValue >> 2;
+                                #ifdef SET_SSD1306
+                                    sprintf(stk,"Enc:%ld\n", enc_);
+                                    ssd1306_clear_lines(6, 1);
+                                    ssd1306_text_xy(mkLineCenter(stk, FONT_WIDTH), 1, 6, false);
+                                #endif
+                                if ((curFreq >= MIN_FREQ) && (curFreq <= MAX_FREQ)) {  
+                                    if (enc_ != 0) {
+                                        frc = txFreq + (txStep * enc_);
+                                    } else {
+                                        frc = txFreq = txFreqDef;
+                                    }
+                                    if (frc < MIN_FREQ) frc = MIN_FREQ;
+                                    else
+                                    if (frc > MAX_FREQ) frc = MAX_FREQ;   
+                                    curFreq = frc;
+
+                                    if (!tmr_ec11) tmr_ec11 = get_tmr(_1s);
+                                }
+                                lastencoderValue = encoderValue;
+                                enc_last = enc_;
+                            }
+                        } else {
+
+                        }
+#endif                        
                     break;
+#ifdef SET_KBD                    
                     case GPIO_INPUT_MENU:
                     {
                         if (!menu_mode) {
@@ -986,10 +1122,31 @@ void app_main()
                         }
                     }
                     break;
+#endif                    
                 }
             }
         }
-        
+#ifdef SET_EC11        
+        if (tmr_ec11) {
+            if (check_tmr(tmr_ec11)) {
+                tmr_ec11 = 0;
+                //
+                si5351_set_freq(frc * 100, SI5351_CLK0);
+                si5351_output_enable(SI5351_CLK0, 1);
+                //
+                #ifdef SET_SSD1306
+                    float ff = frc;//txFreq;
+                    sprintf(stk, "%.3f KHz", ff / 1000);
+                    mkLineCenter(stk, FONT_WIDTH);
+                    ssd1306_text_xy(stk, 1, 8, true); 
+                #endif
+                ets_printf("[%s] Set freq %u Hz, Step %u Hz, Enc %d\n",
+                            TAGENC, curFreq, allStep[idxStep], enc_);
+                //
+            }
+
+        }
+#endif        
 
 #ifdef SET_SSD1306
         if (check_tmr(adc_tw)) {
