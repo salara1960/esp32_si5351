@@ -176,6 +176,7 @@
 
 
 #define TOTAL_MENU 2
+#define GPIO_INPUT_NONE 0
 #define GPIO_INPUT_KEY   GPIO_NUM_25 // freq step
 #define GPIO_INPUT_MINUS GPIO_NUM_26 // freq -
 #define GPIO_INPUT_PLUS  GPIO_NUM_27 // freq +
@@ -335,6 +336,15 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
         s100KHz,
         s1MHz
     };
+
+    #pragma pack(push,1)
+    typedef struct {
+        uint32_t key;
+        uint32_t val;
+    } si_msg_t;
+    #pragma pack(pop)
+
+    xQueueHandle ec11_evt_queue;
 
     uint32_t curFreq;
     uint64_t txStep;

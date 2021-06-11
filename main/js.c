@@ -369,6 +369,9 @@ int k, i, val_bin = -1;
                                     if (k > 0) {
                                         //sprintf(temp, "freq=%d%s", k, lineEnd);
                                         yes = 0;
+                                        si_msg_t si = {0};
+                                        si.val = k;
+                                        xQueueSend(ec11_evt_queue, &si, (TickType_t)0);
                                     }
                                 }
                             }

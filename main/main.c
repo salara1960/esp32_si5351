@@ -84,6 +84,9 @@ char *sec_to_str_time(char *stx);
     static uint64_t frc = 0;
     static uint64_t txFreq = 0;//1000000 * 100;//(14095600 + 1500 - 50) * 100;
     uint64_t txStep = 0;//10000 * 100;//(uint64_t)((12000 * 100) / 8192);//allStep[idxStep] * 100;
+
+    si_msg_t si_msg = {0};
+
 #endif
 
 
@@ -125,23 +128,24 @@ bool menu_mode = false;
 
 static const char *TAGKBD = "KBD";
 
-static xQueueHandle ec11_evt_queue = NULL;
+xQueueHandle ec11_evt_queue = NULL;
 uint32_t key_num = 0;
 
 
 //
 static void IRAM_ATTR gpio_isr_handler(void *arg)
 {
-    uint32_t gpio_num = (uint32_t)arg;
+    si_msg_t si = {0};
+    si.key = (uint32_t)arg;
 
-    if (!gpio_get_level(gpio_num)) {
+    if (!gpio_get_level(si.key)) {
         switch (gpio_num) {
             case GPIO_INPUT_KEY:
             case GPIO_INPUT_PLUS:
             case GPIO_INPUT_MINUS:
             case GPIO_INPUT_MENU:
                 if (!tiks) {
-                    xQueueSendFromISR(ec11_evt_queue, &gpio_num, NULL);
+                    xQueueSendFromISR(ec11_evt_queue, &si, NULL);
                     tiks = get_tmr(_300ms);
                 }
             break;
@@ -152,7 +156,7 @@ static void IRAM_ATTR gpio_isr_handler(void *arg)
 void kbdInit()
 {
 
-    ec11_evt_queue = xQueueCreate(32, sizeof(uint32_t));
+    ec11_evt_queue = xQueueCreate(32, sizeof(si_msg_t));
 
     gpio_config_t ec11_conf = {
         .intr_type = GPIO_PIN_INTR_ANYEDGE,//GPIO_PIN_INTR_POSEDGE;
@@ -180,7 +184,7 @@ void kbdInit()
 
 static const char *TAGENC = "ENC";
 
-static xQueueHandle ec11_evt_queue = NULL;
+xQueueHandle ec11_evt_queue = NULL;
 uint32_t key_num = 0;
 
 
@@ -194,11 +198,11 @@ int lastMSB = 0;
 int lastLSB = 0;
 uint32_t encs = 0;
 
-portMUX_TYPE gpioMux = portMUX_INITIALIZER_UNLOCKED;
+//portMUX_TYPE gpioMux = portMUX_INITIALIZER_UNLOCKED;
 
 static void IRAM_ATTR gpio_isr_handler(void *arg)
 {
-    portENTER_CRITICAL_ISR(&gpioMux);
+    //portENTER_CRITICAL_ISR(&gpioMux);
 
     uint32_t gpio_num = (uint32_t)arg;
     uint8_t yes = 0;
@@ -237,15 +241,18 @@ static void IRAM_ATTR gpio_isr_handler(void *arg)
         }    
         break;
     }
-    if (yes) xQueueSendFromISR(ec11_evt_queue, &gpio_num, NULL);
-
-    portEXIT_CRITICAL_ISR(&gpioMux);
+    if (yes) {
+        si_msg_t si = {0};
+        si.key = gpio_num;
+        xQueueSendFromISR(ec11_evt_queue, &si, NULL);
+    }
+    //portEXIT_CRITICAL_ISR(&gpioMux);
 }
 //
 void ec11Init()
 {
 
-    ec11_evt_queue = xQueueCreate(32, sizeof(uint32_t));
+    ec11_evt_queue = xQueueCreate(32, sizeof(si_msg_t));
 
     gpio_config_t ec11_conf = {
         .intr_type = GPIO_PIN_INTR_ANYEDGE,//GPIO_PIN_INTR_POSEDGE;
@@ -1017,7 +1024,7 @@ void app_main()
                                     frc -= txStep;
                                     if (frc < MIN_FREQ) frc = MIN_FREQ;
                                     curFreq = frc;
-                                    if (!tmr_ec11) tmr_ec11 = get_tmr(_1s);
+                                    if (!tmr_ec11) tmr_ec11 = get_tmr(_250ms);
                                 }    
                             }
                             break;
@@ -1027,7 +1034,7 @@ void app_main()
                                     frc += txStep;
                                     if (frc > MAX_FREQ) frc = MAX_FREQ;
                                     curFreq = frc;
-                                    if (!tmr_ec11) tmr_ec11 = get_tmr(_1s);
+                                    if (!tmr_ec11) tmr_ec11 = get_tmr(_250ms);
                                 }
                             }
                             break;
@@ -1072,8 +1079,9 @@ void app_main()
 #endif        
         //
 
-        if (xQueueReceive(ec11_evt_queue, &key_num, 100)) {
+        if (xQueueReceive(ec11_evt_queue, &si_msg, 100)) {
             if (ini == ESP_OK) {
+                key_num = si_msg.key;
                 switch (key_num) {
                     case GPIO_INPUT_KEY:
                         if (!menu_mode) {
@@ -1125,12 +1133,12 @@ void app_main()
                                     ssd1306_text_xy(mkLineCenter(stk, FONT_WIDTH), 1, 6, false);
                                 #endif*/
                                 if ((curFreq >= MIN_FREQ) && (curFreq <= MAX_FREQ)) {  
-                                    if (enc_ != 0) {
+                                    //if (enc_ != 0) {
                                         //frc = txFreq + (txStep * abs(enc_ - enc_last));    
                                         frc += txStep * (enc_ - enc_last);
-                                    } else {
-                                        frc = txFreq = txFreqDef;
-                                    }
+                                    //} else {
+                                    //    frc = txFreq = txFreqDef;
+                                    //}
                                     if (frc < MIN_FREQ) frc = MIN_FREQ;
                                     else
                                     if (frc > MAX_FREQ) frc = MAX_FREQ;   
@@ -1146,6 +1154,19 @@ void app_main()
                         }
 #endif                        
                     break;
+#ifdef SET_EC11                    
+                    case GPIO_INPUT_NONE:
+                        if ((curFreq >= MIN_FREQ) && (curFreq <= MAX_FREQ)) {  
+                            if (si_msg.val > 0) frc = si_msg.val;
+                            if (frc < MIN_FREQ) frc = MIN_FREQ;
+                            else
+                            if (frc > MAX_FREQ) frc = MAX_FREQ;   
+                            curFreq = frc;
+
+                            if (!tmr_ec11) tmr_ec11 = get_tmr(_250ms);
+                        }
+                    break;
+#endif                    
 #ifdef SET_KBD                    
                     case GPIO_INPUT_MENU:
                     {
