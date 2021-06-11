@@ -83,7 +83,7 @@ char *sec_to_str_time(char *stx);
 
     static uint64_t frc = 0;
     static uint64_t txFreq = 0;//1000000 * 100;//(14095600 + 1500 - 50) * 100;
-    static uint64_t txStep = 0;//10000 * 100;//(uint64_t)((12000 * 100) / 8192);//allStep[idxStep] * 100;
+    uint64_t txStep = 0;//10000 * 100;//(uint64_t)((12000 * 100) / 8192);//allStep[idxStep] * 100;
 #endif
 
 
@@ -118,6 +118,7 @@ char *sec_to_str_time(char *stx);
 #endif
 
 bool menu_mode = false;
+
 
 //----------------------------   KBD CTRL   --------------------------------------
 #ifdef SET_KBD
@@ -268,6 +269,30 @@ void ec11Init()
 #endif
 
 //------------------------------------------------------------------------------------
+
+#ifdef SET_SI5351
+    void setFreqStep(bool up)
+    {
+        if (up) {
+            idxStep++;
+            if (idxStep >= TOTAL_STEP) idxStep = 0;
+        } else {
+            idxStep--;
+            if (idxStep >= TOTAL_STEP) idxStep = TOTAL_STEP - 1;
+        }    
+        txStep = (uint64_t)(allStep[idxStep]);
+        
+        char stx[32];
+        sprintf(stx,"Step:%u Hz\n", (uint32_t)txStep);
+        #ifdef SET_SSD1306    
+            ssd1306_clear_lines(7, 1);
+            //mkLineCenter(stx, FONT_WIDTH);
+            ssd1306_text_xy(stx, 1, 7, false);
+        #endif 
+        
+        ets_printf("[%s] Set step %u Hz\n", __func__, (uint32_t)txStep);     
+    }                                
+#endif
 
 //***************************************************************************************************************
 
@@ -663,7 +688,7 @@ void app_main()
         cli_id = ntohl(cli_id);
     }
 
-    vTaskDelay(500 / portTICK_RATE_MS);
+    vTaskDelay(250 / portTICK_RATE_MS);
 
     ets_printf("\nApp version %s | MAC %s | SDK Version %s | FreeMem %u\n", Version, sta_mac, esp_get_idf_version(), xPortGetFreeHeapSize());
 
@@ -677,13 +702,6 @@ void app_main()
     gpio_pad_pullup(GPIO_LOG_PIN);
     gpio_set_direction(GPIO_LOG_PIN, GPIO_MODE_OUTPUT);
     gpio_set_level(GPIO_LOG_PIN, LED_OFF);
-
-#ifdef SET_IRED
-    gpio_pad_select_gpio(GPIO_IR_LED);//white LED
-    gpio_pad_pullup(GPIO_IR_LED);
-    gpio_set_direction(GPIO_IR_LED, GPIO_MODE_OUTPUT);
-    gpio_set_level(GPIO_IR_LED, LED_OFF);    
-#endif
 
     //--------------------------------------------------------
 
@@ -792,7 +810,7 @@ void app_main()
     ets_printf("[%s] Started timer with period 10 ms, time since boot: %lld\n",
                     TAGT, esp_timer_get_time());
 
-    vTaskDelay(500 / portTICK_RATE_MS);
+    vTaskDelay(250 / portTICK_RATE_MS);
 
 //******************************************************************************************************
 
@@ -840,7 +858,7 @@ void app_main()
     SPIFFS_Directory("/spiffs/");
     if (xTaskCreatePinnedToCore(&ips_task, "ips_task", STACK_SIZE_1K * 6, NULL, 2, NULL, 0) != pdPASS) {//5,NULL,1
         ESP_LOGE(TAGS, "Create ips_task failed | FreeMem %u", xPortGetFreeHeapSize());
-    } else vTaskDelay(500 / portTICK_RATE_MS);
+    } else vTaskDelay(250 / portTICK_RATE_MS);
 
 
 #endif
@@ -887,14 +905,13 @@ void app_main()
         if (si5351_init(SI5351_CRYSTAL_LOAD_10PF, SI5351_XTAL_FREQ, 175310)) {
             //si5351_start(SI5351_CLK0, txFreq * 100, SI5351_DRIVE_8MA);
 
-            //vTaskDelay(1000 / portTICK_RATE_MS);
-
             si5351_drive_strength(SI5351_CLK0, SI5351_DRIVE_2MA);
 
             si5351_set_freq(txFreq * 100, SI5351_CLK0);
             si5351_output_enable(SI5351_CLK0, 1);
 
             curFreq = txFreq;
+            frc = txFreq;
 
             #ifdef SET_SSD1306
                 sprintf(stk, "Step:%u Hz\n", allStep[idxStep]);
@@ -929,7 +946,7 @@ void app_main()
     if (wmode & 1) {// WIFI_MODE_STA) || WIFI_MODE_APSTA
         if (xTaskCreatePinnedToCore(&sntp_task, "sntp_task", STACK_SIZE_2K, work_sntp, 4, NULL, 0) != pdPASS) {//5,NULL,1
             ESP_LOGE(TAGS, "Create sntp_task failed | FreeMem %u", xPortGetFreeHeapSize());
-        } else vTaskDelay(500 / portTICK_RATE_MS);
+        } else vTaskDelay(250 / portTICK_RATE_MS);
     }
 #endif
 
@@ -949,7 +966,7 @@ void app_main()
 
     if (xTaskCreatePinnedToCore(&ws_task, "ws_task", 4*STACK_SIZE_1K, &ws_port, 6, NULL, 1) != pdPASS) {//8//10//7
         ESP_LOGE(TAGWS, "Create ws_task failed | FreeMem %u", xPortGetFreeHeapSize());
-    } else vTaskDelay(500 / portTICK_RATE_MS);
+    } else vTaskDelay(250 / portTICK_RATE_MS);
 #endif
 
 
@@ -969,7 +986,7 @@ void app_main()
         if (!tmr_ired) {
             if (decodeIRED(&results)) {
 
-                tmr_ired = get_tmr(_200ms);
+                tmr_ired = get_tmr(_350ms);
                 int8_t kid = -1;
                 for (int8_t i = 0; i < MAX_IRED_KEY; i++) {
                     if (results.value == keyAll[i].code) {
@@ -986,6 +1003,7 @@ void app_main()
                 }  
                 ssd1306_text_xy(mkLineCenter(stline, FONT_WIDTH), 1, 5, false);
                 //
+                key_num = 0;
                 if (kid != -1) {
                     switch (kid) {
                         case key_ch:
@@ -994,10 +1012,34 @@ void app_main()
                         case key_ch_plus:
                         case key_ch_minus:
                         case key_minus:
+                            if (!menu_mode) {
+                                if (curFreq >= MIN_FREQ) {
+                                    frc -= txStep;
+                                    if (frc < MIN_FREQ) frc = MIN_FREQ;
+                                    curFreq = frc;
+                                    if (!tmr_ec11) tmr_ec11 = get_tmr(_1s);
+                                }    
+                            }
+                            break;
                         case key_plus:
+                            if (!menu_mode) {
+                                if (curFreq <= MAX_FREQ) {
+                                    frc += txStep;
+                                    if (frc > MAX_FREQ) frc = MAX_FREQ;
+                                    curFreq = frc;
+                                    if (!tmr_ec11) tmr_ec11 = get_tmr(_1s);
+                                }
+                            }
+                            break;
                         case key_left:
                         case key_right:
                         case key_eq:
+                            if (!menu_mode) {
+                                setFreqStep(true);
+                            } else {
+                            
+                            }
+                            break;
                         case key_sp:
                         case key_100:
                         case key_200:
@@ -1035,16 +1077,7 @@ void app_main()
                 switch (key_num) {
                     case GPIO_INPUT_KEY:
                         if (!menu_mode) {
-                            idxStep++;
-                            if (idxStep >= TOTAL_STEP) idxStep = 0;
-                            txStep = (uint64_t)(allStep[idxStep]);
-                            sprintf(stk,"Step:%u Hz\n", allStep[idxStep]);
-                            #ifdef SET_SSD1306    
-                                ssd1306_clear_lines(7, 1);
-                                //mkLineCenter(stk, FONT_WIDTH);
-                                ssd1306_text_xy(stk, 1, 7, false);
-                            #endif
-                            ets_printf("[%s] Set step %u Hz\n", TAGENC, allStep[idxStep]);    
+                            setFreqStep(true);
                         } else {
                             
                         }
@@ -1086,14 +1119,15 @@ void app_main()
                         if (!menu_mode) {
                             if (encoderValue != lastencoderValue) {
                                 enc_ = encoderValue >> 2;
-                                #ifdef SET_SSD1306
+                                /*#ifdef SET_SSD1306
                                     sprintf(stk,"Enc:%ld\n", enc_);
                                     ssd1306_clear_lines(6, 1);
                                     ssd1306_text_xy(mkLineCenter(stk, FONT_WIDTH), 1, 6, false);
-                                #endif
+                                #endif*/
                                 if ((curFreq >= MIN_FREQ) && (curFreq <= MAX_FREQ)) {  
                                     if (enc_ != 0) {
-                                        frc = txFreq + (txStep * enc_);
+                                        //frc = txFreq + (txStep * abs(enc_ - enc_last));    
+                                        frc += txStep * (enc_ - enc_last);
                                     } else {
                                         frc = txFreq = txFreqDef;
                                     }
@@ -1126,6 +1160,7 @@ void app_main()
                 }
             }
         }
+
 #ifdef SET_EC11        
         if (tmr_ec11) {
             if (check_tmr(tmr_ec11)) {
@@ -1135,7 +1170,7 @@ void app_main()
                 si5351_output_enable(SI5351_CLK0, 1);
                 //
                 #ifdef SET_SSD1306
-                    float ff = frc;//txFreq;
+                    float ff = frc;
                     sprintf(stk, "%.3f KHz", ff / 1000);
                     mkLineCenter(stk, FONT_WIDTH);
                     ssd1306_text_xy(stk, 1, 8, true); 
@@ -1196,10 +1231,19 @@ void app_main()
 
     }//while (!restart_flag)
 
+    vTaskDelay(500 / portTICK_RATE_MS);
+
+#ifdef SET_IRED
     gpio_set_level(GPIO_IR_LED, LED_OFF);
-    ssd1306_clear();
+#endif
+#ifdef SET_SI5351    
+    si5351_output_enable(SI5351_CLK0, 1);
+#endif 
     strcpy(stk, "Restart...");
+#ifdef SET_SSD1306    
+    ssd1306_clear();
     ssd1306_text_xy(mkLineCenter(stk, FONT_WIDTH), 1, 4, false);
+#endif
 
     uint8_t cnt = 30;
     print_msg(1, TAG, "Waiting for all task closed...%d sec.\n", cnt/10);
@@ -1211,10 +1255,10 @@ void app_main()
 
     if (macs) free(macs);
 
-    vTaskDelay(1500 / portTICK_RATE_MS);
-
     ESP_ERROR_CHECK(esp_wifi_stop());
     ESP_ERROR_CHECK(esp_wifi_deinit());
+
+    vTaskDelay(500 / portTICK_RATE_MS);
 
     esp_restart();
 }

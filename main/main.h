@@ -335,6 +335,11 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
         s100KHz,
         s1MHz
     };
+
+    uint32_t curFreq;
+    uint64_t txStep;
+
+    void setFreqStep(bool up);
 #endif
 
 

@@ -11,7 +11,7 @@ const char *CtlName[] = {
     "time",     //6//{"time":"1579692184"} , {"time":1579692184}
     "eopack",   //7//{"eopack":"\r\n"}
     "get",      //8//{"get":"status"},{"get":"wifi"},{"get":"sntp_srv"},{"get":"time_zone"},
-                //   {"get":"eopack"},{"get":"log_port"},{"get":"version"},{"get":"data"}
+                //   {"get":"eopack"},{"get":"log_port"},{"get":"version"},{"get":"data"},{"get":"freq"},{"get":"step"},
     "fmt",      //9//{"fmt":"text"} , {"fmt":"json"}
     "rst",      //10//{"rst":"on"}
     "period",   //11//{"period":1000} , {"period":500}.....
@@ -19,18 +19,20 @@ const char *CtlName[] = {
     "dbg",      //13//{"dbg":"on"} , {"dbg":"off"}
     "epoch",    //14//{"epoch":"1579692184:2"}
     "jtune",    //15//{"jtune":"on"} , {"jtune":"off"}
-    "step",     //16//{"step":500} // 500 Hz
+    "step",     //16//{"step":"up"} , {"step":"down"}
     "freq"      //17//{"freq":12000000}//12 MHz
 };
 
 const char *isNone  = "???";
 const char *isOn  = "on";
 const char *isOff = "off";
+const char *isUp  = "up";
+const char *isDown = "down";
 const char *lineEnd = "\n";
 //uint8_t fmtType = fmtText;
 
 
-#define sub_cmd_name_all 8//7
+#define sub_cmd_name_all 10//8//7
 const char *SubCtlName[] = {
     "status",   //0
     "wifi",     //1//{"wifi":"ssid:password"}
@@ -39,7 +41,9 @@ const char *SubCtlName[] = {
     "eopack",   //4//{"eopack":">\r\n"}
     "log_port", //5//{"log_port":"8008"}
     "version",  //6//{"version":"4.2 (22.01.2020)"}
-    "data"      //8//{"data":"....."}
+    "data",     //7//{"data":"....."}
+    "up",     //8//{"step":".."}// next/prev step 
+    "down"      //9//{"freq":8000}// set curFreq (= 8000)
 };
 //------------------------------------------------------------------------------------------
 char *get_json_str(cJSON *tp)
@@ -63,10 +67,13 @@ int parser_json_str(const char *st, bool *au, const char *str_md5, uint8_t *rst)
 int yes = -1, subc = 0;
 uint8_t done = 0, ind_c = 255, rcpu = 0;
 int k, i, val_bin = -1;
-//#ifdef SET_UART_BRIDGE
+#ifdef SET_UART_BRIDGE
     char temp[64] = {0};
     int dlin = 0;
-//#endif
+#endif
+
+#ifdef SET_SI5351
+#endif    
 
 
     cJSON *obj = cJSON_Parse(st);
@@ -331,7 +338,28 @@ int k, i, val_bin = -1;
                                 done = 1;
                             }
                         break;
-                        case iCTRL_STEP://11//{"step":500}
+#ifdef SET_SI5351                        
+                        case iCTRL_STEP://11//{"step":"up"} , {"step":"down"}
+                            if (val) {
+                                if (au) {
+                                    if (*au) {
+                                        if (!strcmp(val, isUp)) {
+                                            //dlin = sprintf(temp, "dbg_on%s", lineEnd);
+                                            yes = 0;
+                                            subc = sCTRL_STEP_UP;
+                                            setFreqStep(true);    
+                                        } else if (!strcmp(val, isDown)) {
+                                            //dlin = sprintf(temp, "dbg_off%s", lineEnd);
+                                            yes = 0;
+                                            subc = sCTRL_STEP_DOWN;
+                                            setFreqStep(false);
+                                        }
+                                    }
+                                }
+                                done = 1;
+                            }
+                        break;
+                        case iCTRL_FREQ://11//{"freq":12000000}
                             if (au) {
                                 if (*au) {
                                     k = -1;
@@ -339,28 +367,14 @@ int k, i, val_bin = -1;
                                     else
                                     if (val_bin != -1) k = val_bin;
                                     if (k > 0) {
-                                        dlin = sprintf(temp, "step=%d%s", k, lineEnd);
+                                        //sprintf(temp, "freq=%d%s", k, lineEnd);
                                         yes = 0;
                                     }
                                 }
                             }
                             done = 1;
                         break;
-                        case iCTRL_FREQ://11//{"freq":12000000}
-                            if (au) {
-                                if (*au) {
-                                    long long ki = -1;
-                                    if (val) ki = atoll(val);
-                                    else
-                                    if (val_bin != -1) ki = val_bin;
-                                    if (k > 0) {
-                                        dlin = sprintf(temp, "freq=%lld%s", ki, lineEnd);
-                                        yes = 0;
-                                    }
-                                }
-                            }
-                            done = 1;
-                        break;
+#endif                        
                     }//switch (ind_c)
                 }//if ((val) || (val_bin != -1))
                 if (val) free(val);
@@ -392,9 +406,12 @@ char ts[64];
     if (*au == false) {
         len = sprintf(tbuf, "{\"status\":\"You are NOT auth. client, bye\"}");
     } else {
-        if (ictrl != iCTRL_GET) {
-            len = sprintf(tbuf, "{\"DevID\":\"%08X\",\"Time\":%u,\"FreeMem\":%u}",
+        if ((ictrl != iCTRL_GET) && (ictrl != iCTRL_STEP)) {
+            sprintf(tbuf, "{\"DevID\":\"%08X\",\"Time\":%u,\"FreeMem\":%u",
                             cli_id, (uint32_t)time(NULL), xPortGetFreeHeapSize());
+#ifdef SET_SI5351
+                sprintf(tbuf+strlen(tbuf), ",\"curFreq\":%u,\"stepFreq\":%u", curFreq, (uint32_t)txStep);
+#endif 
         } else {
             sprintf(tbuf, "{\"DevID\":\"%08X\",\"Time\":%u,\"FreeMem\":%u",
                             cli_id, (uint32_t)time(NULL), xPortGetFreeHeapSize());
@@ -437,10 +454,19 @@ char ts[64];
                 case sCTRL_VERSION://6//"version"   //{"version":"4.2 (22.01.2020)"}
                     sprintf(tbuf+strlen(tbuf), ",\"%s\":\"%s\"", SubCtlName[sctrl], Version);
                 break;
+#ifdef SET_SI5351
+                case sCTRL_STEP_UP://8//"step" //{"step":1000}// 1000 Hz
+                case sCTRL_STEP_DOWN://8//"step" //{"step":1000}// 1000 Hz
+                    sprintf(tbuf+strlen(tbuf), ",\"%s\":%u", CtlName[ictrl], (uint32_t)txStep);
+                break;
+                //case sCTRL_FREQ://9//"freq" //{"freq":4000}// 4000 Hz
+                //    sprintf(tbuf+strlen(tbuf), ",\"%s\":%u", SubCtlName[sctrl], curFreq);
+                //break;
+#endif                
             }
-            strcat(tbuf, "}");
-            len = strlen(tbuf);
-        }
+        }           
+        strcat(tbuf, "}");
+        len = strlen(tbuf);
     }
 
     return len;

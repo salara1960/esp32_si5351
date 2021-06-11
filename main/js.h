@@ -16,15 +16,15 @@ typedef enum {
     iCTRL_TIME,      //"time"//6
     iCTRL_EOPACK,    //"eopack"//7
     iCTRL_GET,       //"get"//8
-    iCTRL_FMT     ,   //9//{"fmt":"text"} , {"fmt":"json"}
-    iCTRL_RST,        //10{"rst":"on"}
-    iCTRL_PERIOD,     //11//{"period":1000} , {"period":500}.....
-    iCTRL_SHIFT,      //12//{"shift":"on"}
-    iCTRL_DBG,        //13//{"dbg":"on"} , {"dbg":"off"}
-    iCTRL_EPOCH,      //14//{"epoch":"1579692184:2"}
-    iCTRL_JTUNE,      //15//{"jtune":"on"} , {"jtune":"off"}
-    iCTRL_STEP,
-    iCTRL_FREQ
+    iCTRL_FMT,       //9//{"fmt":"text"} , {"fmt":"json"}
+    iCTRL_RST,       //10{"rst":"on"}
+    iCTRL_PERIOD,    //11//{"period":1000} , {"period":500}.....
+    iCTRL_SHIFT,     //12//{"shift":"on"}
+    iCTRL_DBG,       //13//{"dbg":"on"} , {"dbg":"off"}
+    iCTRL_EPOCH,     //14//{"epoch":"1579692184:2"}
+    iCTRL_JTUNE,     //15//{"jtune":"on"} , {"jtune":"off"}
+    iCTRL_STEP,      //16//{"step":"up"} , {"step":"down"}
+    iCTRL_FREQ       //17//{"freq":8000}// set freq = 8000 Hz
 } i_ctrl_t;
 
 typedef enum {
@@ -35,7 +35,9 @@ typedef enum {
     sCTRL_EOPACK,    //4//"eopack",//{"eopack":">\r\n"}
     sCTRL_LOG_PORT,  //5//"log_port", //{"log_port":"8008"}
     sCTRL_VERSION,   //6//"version"   //{"version":"4.2 (22.01.2020)"}
-    sCTRL_DATA       //7//"data" //{"data":"{...}"}
+    sCTRL_DATA,      //7//"data" //{"data":"{...}"}
+    sCTRL_STEP_UP,      //8//"step" //{"step":1000}// 1000 Hz
+    sCTRL_STEP_DOWN       //9//"freq" //{"freq":4000}// 4000 Hz
 } s_ctrl_t;
 
 //extern uint8_t fmtType;

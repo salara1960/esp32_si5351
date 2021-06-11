@@ -474,7 +474,7 @@ fd_set read_Fds;
                                     }
                                 }
                                 //
-                                if (ictrl < iCTRL_FMT) {
+                                if ((ictrl < iCTRL_FMT) || (ictrl >= iCTRL_STEP)) {
                                     char *obuf = (char *)calloc(1, BUF_SIZE);
                                     if (obuf) {
                                         rtr = mkAck(obuf, ictrl, sctrl, &auth);

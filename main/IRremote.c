@@ -8,8 +8,8 @@
 
 //-----------------------------------------------------------------------------
 
-volatile irparams_t irparams;
-decode_results results;
+volatile irparams_t irparams = {0};
+decode_results results = {0};
 
 const char *TAGIR = "IRED";
 
@@ -37,6 +37,8 @@ const one_key_t keyAll[MAX_IRED_KEY] = {
 	{"ir9",     0x3ec3fc1b}
 };
 
+static esp_timer_create_args_t ired_timer_args;
+static esp_timer_handle_t ired_timer;
 
 //-----------------------------------------------------------------------------
 static void ired_timer_callback(void *arg)
@@ -111,15 +113,25 @@ void tmrInitIRED()
     gpio_pad_pullup(IRED_Pin);
     gpio_set_direction(IRED_Pin, GPIO_MODE_INPUT);
 
+    gpio_pad_select_gpio(GPIO_IR_LED);//white LED
+    gpio_pad_pullup(GPIO_IR_LED);
+    gpio_set_direction(GPIO_IR_LED, GPIO_MODE_OUTPUT);
+    gpio_set_level(GPIO_IR_LED, LED_OFF);    
 
-	const esp_timer_create_args_t ired_timer_args = {
-        .callback = &ired_timer_callback,
-        .name = "ired"
-    };
-    esp_timer_handle_t ired_timer;
+
+	//const esp_timer_create_args_t ired_timer_args = {
+    //    .callback = &ired_timer_callback,
+    //    .name = "ired"
+    //};
+    //esp_timer_handle_t ired_timer;
+
+    ired_timer_args.callback = &ired_timer_callback;
+    ired_timer_args.name = "ired";
+    
 
     esp_timer_create(&ired_timer_args, &ired_timer);
-    esp_timer_start_periodic(ired_timer, 50);// 26.315789473684 µs = 38 KHz
+    esp_timer_start_periodic(ired_timer, 26);// 26.315789473684 µs = 38 KHz
+    //esp_timer_start_once(ired_timer, 50);// 26.315789473684 µs = 38 KHz
     ets_printf("[%s] Started InfraRed timer\n", TAGIR);	
 }
 //-----------------------------------------------------------------------------
@@ -127,6 +139,8 @@ void enIntIRED()
 {
     irparams.rcvstate = STATE_IDLE;
     irparams.rawlen = 0;
+
+irparams.timer = 0;
 
 
 /*    gpio_config_t ir_conf = {
@@ -150,6 +164,9 @@ void resumeIRED() // Restart the ISR state machine
 {
 	irparams.rcvstate = STATE_IDLE;
 	irparams.rawlen = 0;
+
+irparams.timer = 0;
+
 }
 //-----------------------------------------------------------------------------
 int16_t compareIRED(uint16_t oldval, uint16_t newval)

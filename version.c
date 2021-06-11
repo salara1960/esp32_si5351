@@ -7,7 +7,9 @@
 //const char *Version = "1.6 (07.06.2021)";// add features : menu, new keyboard's button
 //const char *Version = "1.7 (08.06.2021)";// add infared remote control (TL1838)
 //const char *Version = "1.8 (09.06.2021)";
-const char *Version = "1.9 (010.06.2021)";// add encoder EC11 (with SN74HC14)
+//const char *Version = "1.9 (10.06.2021)";// add encoder EC11 (with SN74HC14)
+//const char *Version = "2.0 (11.06.2021)";// minor changes in set output freq (by EC11)
+const char *Version = "2.1 (11.06.2021)";// minor changes : support up/down step freq via websocket client
 
 
 
