@@ -10,4 +10,6 @@
 //const char *Version = "1.9 (10.06.2021)";// add encoder EC11 (with SN74HC14)
 //const char *Version = "2.0 (11.06.2021)";// minor changes in set output freq (by EC11)
 //const char *Version = "2.1 (11.06.2021)";// minor changes : support up/down step freq via websocket client
-const char *Version = "2.1.1 (11.06.2021)";// minor changes : support set freq value via websocket client
+//const char *Version = "2.1.1 (11.06.2021)";// minor changes : support set freq value via websocket client
+const char *Version = "2.1.2 (12.06.2021)";// minor changes : set default freq to 32768 Hz, step to 1 Hz
+

@@ -212,6 +212,10 @@
 #define _400ms 40 * _10ms
 #define _450ms 45 * _10ms
 #define _500ms 50 * _10ms
+#define _600ms 60 * _10ms
+#define _700ms 70 * _10ms
+#define _800ms 80 * _10ms
+#define _900ms 90 * _10ms
 
 #define _1s   100
 #define _2s     2 * _1s
@@ -324,7 +328,7 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
 
     #define TOTAL_STEP 7
     #define MIN_FREQ 4000
-    #define MAX_FREQ 150000000
+    #define MAX_FREQ 225000000
 
     //{1, 10, 100, 1000, 10000, 100000, 1000000}
     enum {

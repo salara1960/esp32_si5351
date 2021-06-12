@@ -31,10 +31,10 @@ static char work_pass[wifi_param_len] = {0};
     char work_sntp[sntp_srv_len] = {0};
     char time_zone[sntp_srv_len] = {0};
 #endif
+
 EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
 xSemaphoreHandle prn_mutex;
-
 
 uint8_t *macs = NULL;
 
@@ -62,24 +62,23 @@ static uint32_t varta = 0;
     bool scr_ini_done = false;
 #endif
 
-//static uint8_t scr_len = 0;
-//static char scr_line[32] = {0};
 static uint8_t secFlag = SEC_FLAG_DEF;//100;//10
 static uint8_t led = LED_OFF;
 uint32_t tperiod = 10000;//10000us = 10 ms //100000 us = 100 ms
 
-
+//------------------------------------------------------------------------------------
 
 char *sec_to_str_time(char *stx);
 
 #ifdef SET_SI5351
     static const char *TAGGEN = "GEN";
 
-    const uint64_t txFreqDef = 1000000;
+    const uint64_t txFreqDef = 32768;//1000000;
 
     const uint32_t allStep[TOTAL_STEP] = {1, 10, 100, 1000, 10000, 100000, 1000000};//in Hz
-    uint8_t idxStep = s1KHz;//3;
+    uint8_t idxStep = s1Hz;//s1KHz;//3;
     uint32_t curFreq = 0;
+    uint8_t si_invert = 0;
 
     static uint64_t frc = 0;
     static uint64_t txFreq = 0;//1000000 * 100;//(14095600 + 1500 - 50) * 100;
@@ -904,7 +903,7 @@ void app_main()
     if (ini != ESP_OK) {
         ets_printf("[%s] Init i2c port #%d Error !\n", TAGGEN, SI5351_PORT);
     } else {
-        idxStep = s1KHz;//3;//1000 Hz
+        idxStep = s1Hz;//3;//1000 Hz
         txFreq = txFreqDef;//1000000;// 1 MHz
         txStep = (uint64_t)(allStep[idxStep]);
 
@@ -1048,6 +1047,12 @@ void app_main()
                             }
                             break;
                         case key_sp:
+                            si_invert++;
+                            si_invert &= 1;
+                            si5351_set_clock_invert(SI5351_CLK0, si_invert);
+                            //si5351_update_status();
+                            ets_printf("[%s] Invert freq %u Hz (inv=%u)\n", TAGIR, curFreq, si_invert);
+                            break;
                         case key_100:
                         case key_200:
                         case key_0:
@@ -1144,7 +1149,7 @@ void app_main()
                                     if (frc > MAX_FREQ) frc = MAX_FREQ;   
                                     curFreq = frc;
 
-                                    if (!tmr_ec11) tmr_ec11 = get_tmr(_1s);
+                                    if (!tmr_ec11) tmr_ec11 = get_tmr(_700ms);
                                 }
                                 lastencoderValue = encoderValue;
                                 enc_last = enc_;
@@ -1189,6 +1194,7 @@ void app_main()
                 //
                 si5351_set_freq(frc * 100, SI5351_CLK0);
                 si5351_output_enable(SI5351_CLK0, 1);
+                //si5351_update_status();
                 //
                 #ifdef SET_SSD1306
                     float ff = frc;
