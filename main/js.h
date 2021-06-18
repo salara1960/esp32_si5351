@@ -36,8 +36,8 @@ typedef enum {
     sCTRL_LOG_PORT,  //5//"log_port", //{"log_port":"8008"}
     sCTRL_VERSION,   //6//"version"   //{"version":"4.2 (22.01.2020)"}
     sCTRL_DATA,      //7//"data" //{"data":"{...}"}
-    sCTRL_STEP_UP,      //8//"step" //{"step":1000}// 1000 Hz
-    sCTRL_STEP_DOWN       //9//"freq" //{"freq":4000}// 4000 Hz
+    sCTRL_STEP_UP,   //8//"step" //{"step":1000}// 1000 Hz
+    sCTRL_STEP_DOWN  //9//"freq" //{"freq":4000}// 4000 Hz
 } s_ctrl_t;
 
 //extern uint8_t fmtType;

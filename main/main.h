@@ -162,6 +162,9 @@
 #define PARAM_WMODE_NAME  "wmode"
 #define PARAM_WS_PORT     "wsport"
 
+#ifdef SET_SI5351
+    #define PARAM_SI     "sipar"
+#endif
 
 
 #define EXAMPLE_WIFI_SSID "armLinux" //CONFIG_WIFI_SSID
@@ -348,12 +351,22 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
     } si_msg_t;
     #pragma pack(pop)
 
+    #pragma pack(push,1)
+    typedef struct {
+        uint8_t istep;
+        uint32_t freq;
+    } si_params_t;
+    #pragma pack(pop)
+
+
     xQueueHandle ec11_evt_queue;
 
     uint32_t curFreq;
     uint64_t txStep;
+    si_params_t si_params;
 
     void setFreqStep(bool up);
+    void saveSI();
 #endif
 
 

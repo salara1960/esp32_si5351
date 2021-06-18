@@ -25,6 +25,7 @@ uint8_t wmode = WIFI_MODE_STA;
 static unsigned char wifi_param_ready = 0;
 char work_ssid[wifi_param_len] = {0};
 static char work_pass[wifi_param_len] = {0};
+
 #ifdef SET_SNTP
     volatile uint8_t sntp_go = 0;
 
@@ -73,7 +74,11 @@ char *sec_to_str_time(char *stx);
 #ifdef SET_SI5351
     static const char *TAGGEN = "GEN";
 
-    const uint64_t txFreqDef = 32768;//1000000;
+    //uint8_t si_istep = s1MHz;
+    //uint32_t si_freq = 0;
+    si_params_t si_params = {0, MIN_FREQ};
+
+    const uint64_t txFreqDef = 32768;//in Hz
 
     const uint32_t allStep[TOTAL_STEP] = {1, 10, 100, 1000, 10000, 100000, 1000000};//in Hz
     uint8_t idxStep = s1Hz;//s1KHz;//3;
@@ -197,11 +202,10 @@ int lastMSB = 0;
 int lastLSB = 0;
 uint32_t encs = 0;
 
-//portMUX_TYPE gpioMux = portMUX_INITIALIZER_UNLOCKED;
+
 
 static void IRAM_ATTR gpio_isr_handler(void *arg)
 {
-    //portENTER_CRITICAL_ISR(&gpioMux);
 
     uint32_t gpio_num = (uint32_t)arg;
     uint8_t yes = 0;
@@ -245,7 +249,6 @@ static void IRAM_ATTR gpio_isr_handler(void *arg)
         si.key = gpio_num;
         xQueueSendFromISR(ec11_evt_queue, &si, NULL);
     }
-    //portEXIT_CRITICAL_ISR(&gpioMux);
 }
 //
 void ec11Init()
@@ -297,7 +300,26 @@ void ec11Init()
         #endif 
         
         ets_printf("[%s] Set step %u Hz\n", __func__, (uint32_t)txStep);     
-    }                                
+    } 
+    //
+    void saveSI()//save to NVS memory
+    {
+        uint32_t fr = (uint32_t)curFreq;
+        if ((si_params.istep !=  idxStep) || (si_params.freq != fr)) {
+            si_params.istep = idxStep;
+            si_params.freq = fr;
+            if (si_params.freq < MIN_FREQ) si_params.freq = MIN_FREQ;
+            else
+            if (si_params.freq > MAX_FREQ) si_params.freq = MAX_FREQ;
+            esp_err_t er = save_param(PARAM_SI, (void *)&si_params, sizeof(si_params_t));
+            if (er == ESP_OK)
+                ets_printf("[%s] Ok save step %u Hz and freq %u Hz\n", TAGT, allStep[si_params.istep], si_params.freq);
+            else
+                ets_printf("[%s] Error save step %u Hz and freq %u Hz\n", TAGT, allStep[si_params.istep], si_params.freq);
+        } else {
+            ets_printf("[%s] No change si_params\n", TAGT);
+        }
+    }                               
 #endif
 
 //***************************************************************************************************************
@@ -460,7 +482,9 @@ bool check_pin(uint8_t pin_num)
 }
 //------------------------------------------------------------------------------------------------------------
 #ifdef UDP_SEND_BCAST
+
 #define max_line 256
+
 void udp_task(void *par)
 {
 udp_start = 1;
@@ -804,6 +828,35 @@ void app_main()
 #endif
 
 
+#ifdef SET_SI5351
+    err = read_param(PARAM_SI, (void *)&si_params, sizeof(si_params_t));
+    if (err != ESP_OK) {
+        si_params.istep = s1Hz;
+        si_params.freq = (uint32_t)txFreqDef;
+        if (save_param(PARAM_SI, (void *)&si_params, sizeof(si_params_t)) != ESP_OK) {
+            ets_printf("[%s] Error saving SI_STEP: %u Hz, SI_FREQ: %u Hz\n", TAGT, allStep[si_params.istep], si_params.freq);        
+        } else {
+            ets_printf("[%s] Ok saving SI_STEP: %u Hz, SI_FREQ: %u Hz\n", TAGT, allStep[si_params.istep], si_params.freq);    
+        }
+    } else {
+        bool cha = false;
+        if (si_params.freq < MIN_FREQ) { si_params.freq = MIN_FREQ; cha = true; }
+        else
+        if (si_params.freq > MAX_FREQ) { si_params.freq = MAX_FREQ; cha = true; }
+        if (cha) {
+            if (save_param(PARAM_SI, (void *)&si_params, sizeof(si_params_t)) != ESP_OK) {
+                ets_printf("[%s] Error saving SI_STEP: %u Hz, SI_FREQ: %u Hz\n", TAGT, allStep[si_params.istep], si_params.freq);        
+            } else {
+                ets_printf("[%s] Ok saving SI_STEP: %u Hz, SI_FREQ: %u Hz\n", TAGT, allStep[si_params.istep], si_params.freq);    
+            }    
+        } else {        
+            ets_printf("[%s] SI_STEP: %u Hz, SI_FREQ: %u Hz\n", TAGT, allStep[si_params.istep], si_params.freq);
+        }
+    }
+#endif
+
+
+
     //--------------------------------------------------------
 
     const esp_timer_create_args_t periodic_timer_args = {
@@ -813,8 +866,7 @@ void app_main()
     esp_timer_handle_t periodic_timer;
     esp_timer_create(&periodic_timer_args, &periodic_timer);
     esp_timer_start_periodic(periodic_timer, tperiod);//10000 us = 10 ms
-    ets_printf("[%s] Started timer with period 10 ms, time since boot: %lld\n",
-                    TAGT, esp_timer_get_time());
+    ets_printf("[%s] Started timer with period 10 ms\n", TAGT);
 
     vTaskDelay(250 / portTICK_RATE_MS);
 
@@ -903,8 +955,8 @@ void app_main()
     if (ini != ESP_OK) {
         ets_printf("[%s] Init i2c port #%d Error !\n", TAGGEN, SI5351_PORT);
     } else {
-        idxStep = s1Hz;//3;//1000 Hz
-        txFreq = txFreqDef;//1000000;// 1 MHz
+        //idxStep = s1Hz;//3;//1000 Hz
+        txFreq = si_params.freq;//txFreqDef;//1000000;// 1 MHz
         txStep = (uint64_t)(allStep[idxStep]);
 
         
@@ -1017,7 +1069,7 @@ void app_main()
                             break;
                         case key_ch_plus:
                         case key_ch_minus:
-                        case key_minus:
+                        case key_minus:// уменьшить текущую частоту на текущее значение шага
                             if (!menu_mode) {
                                 if (curFreq >= MIN_FREQ) {
                                     frc -= txStep;
@@ -1027,7 +1079,7 @@ void app_main()
                                 }    
                             }
                             break;
-                        case key_plus:
+                        case key_plus:// увеличить текущую частоту на текущее значение шага  
                             if (!menu_mode) {
                                 if (curFreq <= MAX_FREQ) {
                                     frc += txStep;
@@ -1039,14 +1091,14 @@ void app_main()
                             break;
                         case key_left:
                         case key_right:
-                        case key_eq:
+                        case key_eq:// выбрать шаг перестройки частоты (от 1 до 1000000 Hz)
                             if (!menu_mode) {
                                 setFreqStep(true);
                             } else {
                             
                             }
                             break;
-                        case key_sp:
+                        case key_sp:// инвертировать частоту / не инвертировать частоту
                             si_invert++;
                             si_invert &= 1;
                             si5351_set_clock_invert(SI5351_CLK0, si_invert);
@@ -1054,6 +1106,8 @@ void app_main()
                             ets_printf("[%s] Invert freq %u Hz (inv=%u)\n", TAGIR, curFreq, si_invert);
                             break;
                         case key_100:
+                            saveSI();
+                            break;
                         case key_200:
                         case key_0:
                         case key_1:
@@ -1084,7 +1138,7 @@ void app_main()
 #endif        
         //
 
-        if (xQueueReceive(ec11_evt_queue, &si_msg, 100)) {
+        if (xQueueReceive(ec11_evt_queue, &si_msg, 100)) {// выбрать из очереди самый "старый" элемент
             if (ini == ESP_OK) {
                 key_num = si_msg.key;
                 switch (key_num) {
@@ -1189,7 +1243,7 @@ void app_main()
 
 #ifdef SET_EC11        
         if (tmr_ec11) {
-            if (check_tmr(tmr_ec11)) {
+            if (check_tmr(tmr_ec11)) {// установить новое значение частоты
                 tmr_ec11 = 0;
                 //
                 si5351_set_freq(frc * 100, SI5351_CLK0);
@@ -1263,9 +1317,14 @@ void app_main()
 #ifdef SET_IRED
     gpio_set_level(GPIO_IR_LED, LED_OFF);
 #endif
+
 #ifdef SET_SI5351    
-    si5351_output_enable(SI5351_CLK0, 1);
+    si5351_output_enable(SI5351_CLK0, 0);
+
+    void saveSI();
+    vTaskDelay(500 / portTICK_RATE_MS);    
 #endif 
+
     strcpy(stk, "Restart...");
 #ifdef SET_SSD1306    
     ssd1306_clear();

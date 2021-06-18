@@ -20,7 +20,7 @@ const char *CtlName[] = {
     "epoch",    //14//{"epoch":"1579692184:2"}
     "jtune",    //15//{"jtune":"on"} , {"jtune":"off"}
     "step",     //16//{"step":"up"} , {"step":"down"}
-    "freq"      //17//{"freq":12000000}//12 MHz
+    "freq"      //17//{"freq":32768}//32.768 KHz
 };
 
 const char *isNone  = "???";
