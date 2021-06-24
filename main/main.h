@@ -162,10 +162,6 @@
 #define PARAM_WMODE_NAME  "wmode"
 #define PARAM_WS_PORT     "wsport"
 
-#ifdef SET_SI5351
-    #define PARAM_SI     "sipar"
-#endif
-
 
 #define EXAMPLE_WIFI_SSID "armLinux" //CONFIG_WIFI_SSID
 #define EXAMPLE_WIFI_PASS "armLinux32" //CONFIG_WIFI_PASSWORD
@@ -250,6 +246,7 @@ typedef struct {
 } s_log_t;
 #pragma pack(pop)
 
+
 extern const char *Version;
 
 extern uint32_t cli_id;
@@ -331,7 +328,14 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
 
     #define TOTAL_STEP 7
     #define MIN_FREQ 4000
-    #define MAX_FREQ 225000000
+    #define MAX_FREQ 160000000
+
+    #define PARAM_SI   "sipar"
+    #define PARAM_LIST "silist"
+
+    #define MAX_ITEM 8
+    #define EMPTY_BIT32 0xFFFFFFFF
+    #define EMPTY_BIT8 0xFF
 
     //{1, 10, 100, 1000, 10000, 100000, 1000000}
     enum {
@@ -357,7 +361,6 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
         uint32_t freq;
     } si_params_t;
     #pragma pack(pop)
-
 
     xQueueHandle ec11_evt_queue;
 

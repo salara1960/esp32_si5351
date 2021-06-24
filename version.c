@@ -13,4 +13,5 @@
 //const char *Version = "2.1.1 (11.06.2021)";// minor changes : support set freq value via websocket client
 //const char *Version = "2.1.2 (12.06.2021)";// minor changes : set default freq to 32768 Hz, step to 1 Hz
 //const char *Version = "2.2 (18.06.2021)";// major changes : read/save idxStep and Freq in NVS memory
-const char *Version = "2.2.1 (22.06.2021)";// minor changes : set max freq 160MHz (datasheet for chip si5351a)
+//const char *Version = "2.2.1 (22.06.2021)";// minor changes : set max freq 160MHz (datasheet for chip si5351a)
+const char *Version = "2.3 (24.06.2021)";// minor changes : add item_list[] (istep+freq) in NVS memory

@@ -13,7 +13,6 @@ uint8_t last_cmd = 255;
 
 uint32_t tiks = 0;
 
-//const uint32_t clkBaseKHz = 80000;
 static const char *TAG = "MAIN";
 static const char *TAGN = "NVS";
 static const char *TAGT = "VFS";
@@ -67,21 +66,21 @@ static uint8_t secFlag = SEC_FLAG_DEF;//100;//10
 static uint8_t led = LED_OFF;
 uint32_t tperiod = 10000;//10000us = 10 ms //100000 us = 100 ms
 
+
 //------------------------------------------------------------------------------------
 
 char *sec_to_str_time(char *stx);
 
 #ifdef SET_SI5351
+
     static const char *TAGGEN = "GEN";
 
-    //uint8_t si_istep = s1MHz;
-    //uint32_t si_freq = 0;
     si_params_t si_params = {0, MIN_FREQ};
 
     const uint64_t txFreqDef = 32768;//in Hz
 
     const uint32_t allStep[TOTAL_STEP] = {1, 10, 100, 1000, 10000, 100000, 1000000};//in Hz
-    uint8_t idxStep = s1Hz;//s1KHz;//3;
+    uint8_t idxStep = s1Hz;
     uint32_t curFreq = 0;
     uint8_t si_invert = 0;
 
@@ -90,6 +89,9 @@ char *sec_to_str_time(char *stx);
     uint64_t txStep = 0;//10000 * 100;//(uint64_t)((12000 * 100) / 8192);//allStep[idxStep] * 100;
 
     si_msg_t si_msg = {0};
+
+    si_params_t item_list[MAX_ITEM];
+    int8_t iList = -1;
 
 #endif
 
@@ -102,7 +104,7 @@ char *sec_to_str_time(char *stx);
     static const char *TAGFFS = "FFS";
     static const char *TAGST = "IPS";
 
-    static void SPIFFS_Directory(char * path)
+    static void SPIFFS_Directory(char *path)
     {
         DIR *dir = opendir(path);
         if (!dir) return;
@@ -114,11 +116,10 @@ char *sec_to_str_time(char *stx);
         }
         closedir(dir);
     }
-
     //
     //
     //
-#include "test.c"
+    #include "test.c"
     //
     //
     //
@@ -134,7 +135,6 @@ static const char *TAGKBD = "KBD";
 
 xQueueHandle ec11_evt_queue = NULL;
 uint32_t key_num = 0;
-
 
 //
 static void IRAM_ATTR gpio_isr_handler(void *arg)
@@ -202,8 +202,7 @@ int lastMSB = 0;
 int lastLSB = 0;
 uint32_t encs = 0;
 
-
-
+//
 static void IRAM_ATTR gpio_isr_handler(void *arg)
 {
 
@@ -280,6 +279,7 @@ void ec11Init()
 //------------------------------------------------------------------------------------
 
 #ifdef SET_SI5351
+    //
     void setFreqStep(bool up)
     {
         if (up) {
@@ -319,7 +319,60 @@ void ec11Init()
         } else {
             ets_printf("[%s] No change si_params\n", TAGT);
         }
-    }                               
+    }
+    //
+    void initList()
+    {
+        for (int8_t i = 0; i < MAX_ITEM; i++) {
+            item_list[i].istep = -1;
+            item_list[i].freq = 0xffffffff;
+        }
+    }
+    //
+    esp_err_t saveLIST()//save list to NVS memory
+    {  
+        esp_err_t er = save_param(PARAM_LIST, (void *)&item_list, sizeof(si_params_t) * MAX_ITEM);
+        if (er == ESP_OK) ets_printf("[%s] Ok save ITEM_LIST\n", TAGT);
+                     else ets_printf("[%s] Error save ITEM_LIST\n", TAGT);
+
+        return er;             
+    }
+    //
+    esp_err_t readLIST()//read list from NVS memory
+    {  
+        esp_err_t er = ESP_FAIL;
+        size_t len = sizeof(si_params_t) * MAX_ITEM;
+
+        uint8_t *lst = (uint8_t *)calloc(1, len);
+        if (lst) {
+            er = read_param(PARAM_LIST, (void *)lst, len);
+            if (er == ESP_OK) {
+                ets_printf("[%s] Ok read ITEM_LIST\n", TAGT);
+                memcpy((uint8_t *)&item_list, lst, len);
+            } else {    
+                ets_printf("[%s] Error read ITEM_LIST\n", TAGT);
+            }    
+            free(lst);
+        } else {
+            ets_printf("[%s] Error get memory for item_list\n", TAGT);
+        }
+
+        return er;
+    }
+    //
+    int8_t findLIST()//find first empty item from item_list
+    {
+        int8_t ret = -1;
+        for (int8_t i = 0; i < MAX_ITEM; i++) {
+            if (item_list[i].freq == EMPTY_BIT32) {
+                ret = i;
+                break;
+            }
+        }
+
+        return ret;
+    }
+    //
 #endif
 
 //***************************************************************************************************************
@@ -853,6 +906,26 @@ void app_main()
             ets_printf("[%s] SI_STEP: %u Hz, SI_FREQ: %u Hz\n", TAGT, allStep[si_params.istep], si_params.freq);
         }
     }
+    //
+    initList();
+    //
+    err = readLIST();
+    if (err == ESP_OK) {
+        iList = findLIST();
+        ets_printf("[%s] First empty item_list index %d\n", TAGT, iList);
+    } else {
+        iList = 0;
+        memcpy((uint8_t *)&item_list[iList], (uint8_t *)&si_params, sizeof(si_params_t));
+        iList++;
+        err = saveLIST();
+    }
+    if (err == ESP_OK) {
+        ets_printf("[%s] ITEM_LIST:\n", TAGT);
+        for (int8_t i = 0; i < MAX_ITEM; i++) {
+            ets_printf("\t[%d] istep = %d freq = %u\n", i, item_list[i].istep, item_list[i].freq);
+        }
+    }
+    //
 #endif
 
 
