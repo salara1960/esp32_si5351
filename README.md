@@ -1,20 +1,22 @@
 # frequency generator
 
 
-esp32(DevKitC board) + ssd1306(i2c) + si5351(i2c, 4KHz..160MHz) + TL1838(infrared receiver)
+esp32(DevKitC board) + ssd1306(i2c) + si5351(i2c, 4KHz..160MHz) + TL1838(infrared receiver) + EC11(with SN74HC14)
 
 
 # Файлы пакета:
 
-* sdkconfing	- файл конфигурации проекта
+* sdkconfing     - файл конфигурации проекта
 
-* Makefile	- make файл (файл сценария компиляции проекта)
+* partitions.csv - файл конфигурации разделов data-flash
 
-* version	- файл версии ПО
+* Makefile       - make файл (файл сценария компиляции проекта)
 
-* README.md	- файл справки
+* version.c      - файл версии ПО
 
-* main/		- папка исходников
+* README.md      - файл справки
+
+* main/          - папка исходников
 
 
 Требуемые компоненты:
@@ -29,8 +31,8 @@ esp32(DevKitC board) + ssd1306(i2c) + si5351(i2c, 4KHz..160MHz) + TL1838(infrare
 
 make menuconfig - конфигурация проекта
 
-make app	- компиляция проекта
+make app        - компиляция проекта
 
-make flash	- запись бинарного кода проекта в dataflash
+make flash      - запись бинарного кода проекта в data-flash
 
 
