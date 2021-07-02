@@ -195,21 +195,86 @@ i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 
     if (xSemaphoreTake(lcd_mutex, portMAX_DELAY) == pdTRUE) {
 
-        uint8_t ini[] = {
-            OLED_CONTROL_BYTE_CMD_STREAM,
-            OLED_CMD_SET_CHARGE_PUMP,
-            0x14,
-            OLED_CMD_SET_SEGMENT_REMAP,
-            OLED_CMD_SET_COM_SCAN_MODE,
-            OLED_CMD_SET_COLUMN_RANGE,
-            0,
-            0x7f,
-            OLED_CMD_SET_PAGE_RANGE,
-            0,
-            7,
-            OLED_CMD_DISPLAY_ON,
-            invert
-        };
+        #ifdef OLED_128x32
+            uint8_t ini[] = {
+                OLED_CONTROL_BYTE_CMD_STREAM,
+                OLED_CMD_DISPLAY_OFF,
+                OLED_CMD_SET_DISPLAY_CLK_DIV,//0xd5, // SSD1306_SETDISPLAYCLOCKDIV
+                0x80, // Suggested value 0x80
+                OLED_CMD_SET_MUX_RATIO,//0xa8, // SSD1306_SETMULTIPLEX
+                0x1f, // 1/32
+                OLED_CMD_SET_DISPLAY_OFFSET,//0xd3, // SSD1306_SETDISPLAYOFFSET
+                0x00, // 0 no offset
+                OLED_CMD_SET_DISPLAY_START_LINE,//0x40, // SSD1306_SETSTARTLINE line #0
+                OLED_CMD_SET_CHARGE_PUMP,//0x8d, // SSD1306_CHARGEPUMP
+                0x14, // Charge pump on
+                OLED_CMD_SET_MEMORY_ADDR_MODE,//0x20, // SSD1306_MEMORYMODE
+                0x00, // 0x0 act like ks0108
+                //rotation to 180 
+                0xa0,//OLED_CMD_SET_SEGMENT_REMAP,//0xa1, // SSD1306_SEGREMAP | 1
+                0xc0,//OLED_CMD_SET_COM_SCAN_MODE,//0xc8, // SSD1306_COMSCANDEC
+                //
+                OLED_CMD_SET_COM_PIN_MAP,//0xda, // SSD1306_SETCOMPINS
+                0x02,
+                OLED_CMD_SET_CONTRAST,//0x81, // SSD1306_SETCONTRAST
+                0x2f,
+                OLED_CMD_SET_PRECHARGE,//0xd9, // SSD1306_SETPRECHARGE
+                0xf1,
+                OLED_CMD_SET_VCOMH_DESELCT,//0xdb, // SSD1306_SETVCOMDETECT
+                0x40,
+                OLED_CMD_SET_DEACTIVATE_SCROLL,//0x2e, // SSD1306_DEACTIVATE_SCROLL
+                OLED_CMD_DISPLAY_RAM,//0xa4, // SSD1306_DISPLAYALLON_RESUME
+                invert,//0xa6  // SSD1306_NORMALDISPLAY
+                OLED_CMD_DISPLAY_ON
+            };
+        #else 
+            uint8_t ini[] = {
+                OLED_CONTROL_BYTE_CMD_STREAM,
+                OLED_CMD_DISPLAY_OFF,//0xae, // SSD1306_DISPLAYOFF
+                OLED_CMD_SET_DISPLAY_CLK_DIV,//0xd5, // SSD1306_SETDISPLAYCLOCKDIV
+                0x80, // Suggested value 0x80
+                OLED_CMD_SET_MUX_RATIO,//0xa8, // SSD1306_SETMULTIPLEX
+                0x3f, // 1/64
+                OLED_CMD_SET_DISPLAY_OFFSET,//0xd3, // SSD1306_SETDISPLAYOFFSET
+                0x00, // 0 no offset
+                OLED_CMD_SET_DISPLAY_START_LINE,//0x40, // SSD1306_SETSTARTLINE line #0
+                OLED_CMD_SET_MEMORY_ADDR_MODE,//0x20, // SSD1306_MEMORYMODE
+                0x00, // 0x0 act like ks0108
+                //no rotation
+                OLED_CMD_SET_SEGMENT_REMAP,//0xa1, // SSD1306_SEGREMAP | 1
+                OLED_CMD_SET_COM_SCAN_MODE,//0xc8, // SSD1306_COMSCANDEC
+                //
+                OLED_CMD_SET_COM_PIN_MAP,//0xda, // SSD1306_SETCOMPINS
+                0x12,
+                OLED_CMD_SET_CONTRAST,//0x81, // SSD1306_SETCONTRAST
+                0xcf,
+                OLED_CMD_SET_PRECHARGE,//0xd9, // SSD1306_SETPRECHARGE
+                0xf1,
+                OLED_CMD_SET_VCOMH_DESELCT,//0xdb, // SSD1306_SETVCOMDETECT
+                0x30,
+                OLED_CMD_SET_CHARGE_PUMP,//0x8d, // SSD1306_CHARGEPUMP
+                0x14, // Charge pump on
+                OLED_CMD_SET_DEACTIVATE_SCROLL,//0x2e, // SSD1306_DEACTIVATE_SCROLL
+                OLED_CMD_DISPLAY_RAM,//0xa4, // SSD1306_DISPLAYALLON_RESUME
+                invert,//0xa6  // SSD1306_NORMALDISPLAY
+                OLED_CMD_DISPLAY_ON
+            };
+            /*uint8_t ini[] = {
+                OLED_CONTROL_BYTE_CMD_STREAM,
+                OLED_CMD_SET_CHARGE_PUMP,
+                0x14,
+                OLED_CMD_SET_SEGMENT_REMAP,
+                OLED_CMD_SET_COM_SCAN_MODE,
+                OLED_CMD_SET_COLUMN_RANGE,
+                0,
+                0x7f,
+                OLED_CMD_SET_PAGE_RANGE,
+                0,
+                7,
+                OLED_CMD_DISPLAY_ON,
+                invert
+            };*/
+        #endif
 
         i2c_master_start(cmd);
         i2c_master_write_byte(cmd, (OLED_I2C_ADDRESS << 1) | I2C_MASTER_WRITE, true);
@@ -294,15 +359,19 @@ uint8_t i, zero[128] = {0};
 void ssd1306_clear_lines(uint8_t cy, uint8_t cnt)
 {
 i2c_cmd_handle_t cmd;
-uint8_t i = cy - 1, zero[128] = {0};
 
     if (cy > OLED_MAX_STR) return;
 
     cy--;
+    uint8_t to = cy + cnt - 1;
+    if (to > OLED_MAX_STR) return;
+
+    uint8_t zero[128] = {0};
+    //zero[0] = OLED_CONTROL_BYTE_DATA_STREAM;
 
     if (xSemaphoreTake(lcd_mutex, portMAX_DELAY) == pdTRUE) {
-        
-        for (i = cy; i < (cy + cnt); i++) {
+
+        for (uint8_t i = cy; i < to; i++) {
             cmd = i2c_cmd_link_create();
             i2c_master_start(cmd);
 
@@ -315,7 +384,7 @@ uint8_t i = cy - 1, zero[128] = {0};
             i2c_master_write(cmd, zero, sizeof(zero), true);
 
             i2c_master_stop(cmd);
-            i2c_master_cmd_begin(SSD1306_PORT, cmd, 16/portTICK_PERIOD_MS);
+            i2c_master_cmd_begin(SSD1306_PORT, cmd, 20/portTICK_PERIOD_MS);
             i2c_cmd_link_delete(cmd);
         }
 
@@ -378,13 +447,13 @@ uint8_t dir;
 
         uint8_t sha[] = {
             OLED_CONTROL_BYTE_CMD_STREAM,
-            0x2E,
+            OLED_CMD_SET_DEACTIVATE_SCROLL,//0x2E,
             dir,
             0,
             0,
             7,
             0x3F,
-            0x2F
+            OLED_CMD_SET_ACTIVATE_SCROLL//0x2F
         };
 
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -434,8 +503,8 @@ uint8_t byte;
         i2c_master_write_byte(cmd, 0x20, true);//0x20
         i2c_master_write_byte(cmd, 0x40, true);//0x40
 
-        if (flag) byte = 0x2F;// activate scroll (p29)
-             else byte = 0x2E;// deactivate scroll (p29)
+        if (flag) byte = OLED_CMD_SET_ACTIVATE_SCROLL;//0x2F;// activate scroll (p29)
+             else byte = OLED_CMD_SET_DEACTIVATE_SCROLL;//0x2E;// deactivate scroll (p29)
         i2c_master_write_byte(cmd, byte, true);
 
         i2c_master_stop(cmd);
@@ -449,7 +518,10 @@ uint8_t byte;
 void ssd1306_text_xy(const char *stroka, uint8_t cx, uint8_t cy, bool inv)
 {
 
-uint8_t i, lin = cy - 1, col = cx - 1, len = strlen(stroka);
+if (cy > OLED_MAX_STR) return;
+
+uint8_t i, lin = cy - 1, col = cx - 1, len = strlen(stroka); 
+
 i2c_cmd_handle_t cmd;
 
     if (xSemaphoreTake(lcd_mutex, portMAX_DELAY) == pdTRUE) {

@@ -6,9 +6,9 @@
 #define SET_SI5351
 
 #define SET_SSD1306
-//#ifdef SET_SSD1306
-    //#define OLED_128x32
-//#endif
+#ifdef SET_SSD1306
+    #define OLED_128x32
+#endif
 
 #define SET_SNTP
 

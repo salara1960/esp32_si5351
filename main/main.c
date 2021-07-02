@@ -288,19 +288,19 @@ void ec11Init()
         } else {
             idxStep--;
             if (idxStep >= TOTAL_STEP) idxStep = TOTAL_STEP - 1;
-        }    
+        }
         txStep = (uint64_t)(allStep[idxStep]);
-        
+
         char stx[32];
         sprintf(stx,"Step:%u Hz\n", (uint32_t)txStep);
-        #ifdef SET_SSD1306    
-            ssd1306_clear_lines(7, 1);
+        #ifdef SET_SSD1306
+            ssd1306_clear_lines(OLED_LINE_STEP, 1);
             //mkLineCenter(stx, FONT_WIDTH);
-            ssd1306_text_xy(stx, 1, 7, false);
-        #endif 
-        
-        ets_printf("[%s] Set step %u Hz\n", __func__, (uint32_t)txStep);     
-    } 
+            ssd1306_text_xy(stx, 1, OLED_LINE_STEP, false);
+        #endif
+
+        ets_printf("[%s] Set step %u Hz\n", __func__, (uint32_t)txStep);
+    }
     //
     void saveSI()//save to NVS memory
     {
@@ -973,11 +973,11 @@ void app_main()
 
             #ifdef SET_SSD1306
                 sprintf(stk, "Step:%u Hz\n", allStep[idxStep]);
-                ssd1306_text_xy(stk, 1, 7, false);
+                ssd1306_text_xy(stk, 1, OLED_LINE_STEP, false);
                 //
                 float ff = txFreq;
                 sprintf(stk, "%.3f KHz", ff / 1000);
-                ssd1306_text_xy(mkLineCenter(stk, FONT_WIDTH), 1, 8, true);    
+                ssd1306_text_xy(mkLineCenter(stk, FONT_WIDTH), 1, OLED_LINE_FREQ, true);    
             #endif
             ets_printf("[%s] Set freq %u KHz\n", TAGGEN, curFreq);    
 
@@ -997,12 +997,12 @@ void app_main()
 
     enIntIRED();
     tmrInitIRED();
-#endif    
+#endif
 
 
 #ifdef SET_SNTP
     if (wmode & 1) {// WIFI_MODE_STA) || WIFI_MODE_APSTA
-        if (xTaskCreatePinnedToCore(&sntp_task, "sntp_task", STACK_SIZE_2K, work_sntp, 4, NULL, 0) != pdPASS) {//5,NULL,1
+        if (xTaskCreatePinnedToCore(&sntp_task, "sntp_task", STACK_SIZE_2K, work_sntp, 7, NULL, 1) != pdPASS) {//5,NULL,1
             ESP_LOGE(TAGS, "Create sntp_task failed | FreeMem %u", xPortGetFreeHeapSize());
         } else vTaskDelay(250 / portTICK_RATE_MS);
     }
@@ -1033,7 +1033,7 @@ void app_main()
 #elif defined(SET_EC11)
     ec11Init();// Init EC11Encoder
     uint32_t tmr_ec11 = 0;
-#endif     
+#endif
 
 
 
@@ -1095,7 +1095,6 @@ void app_main()
                             if (!menu_mode) {
                                 setFreqStep(true);
                             } else {
-                            
                             }
                             break;
                         case key_sp:// инвертировать частоту / не инвертировать частоту
@@ -1129,13 +1128,13 @@ void app_main()
                 if (ir_led_on) {
                     gpio_set_level(GPIO_IR_LED, LED_OFF);
                     ir_led_on = false;
-                }    
+                }
                 tmr_ired = 0;
 
                 resumeIRED();
             }
         }
-#endif        
+#endif
         //
 
         if (xQueueReceive(ec11_evt_queue, &si_msg, 100)) {// выбрать из очереди самый "старый" элемент
@@ -1146,7 +1145,6 @@ void app_main()
                         if (!menu_mode) {
                             setFreqStep(true);
                         } else {
-                            
                         }
                     break;
                     case GPIO_INPUT_PLUS:
@@ -1162,10 +1160,10 @@ void app_main()
                             else
                             if (key_num == GPIO_INPUT_MINUS) {
                                 if (txFreq != SI5351_CLKOUT_MIN_FREQ) {
-                                    if ((txFreq - txStep) > SI5351_CLKOUT_MIN_FREQ) txFreq -= txStep;    
+                                    if ((txFreq - txStep) > SI5351_CLKOUT_MIN_FREQ) txFreq -= txStep;
                                                                                else txFreq = SI5351_CLKOUT_MIN_FREQ;
                                 }
-                            }           
+                            }
                             if (txFreq != curFreq) {
                                 si5351_set_freq(txFreq * 100, SI5351_CLK0);
                                 si5351_output_enable(SI5351_CLK0, 1);
@@ -1175,12 +1173,11 @@ void app_main()
                                 float ff = txFreq;
                                 sprintf(stk, "%.3f KHz", ff / 1000);
                                 mkLineCenter(stk, FONT_WIDTH);
-                                ssd1306_text_xy(stk, 1, 8, true); 
+                                ssd1306_text_xy(stk, 1, OLED_LINE_FREQ, true);
                             #endif
 
                             ets_printf("[%s] Set freq %u Hz, Step %u Hz\n", TAGKBD, curFreq, allStep[idxStep]);
                         } else {
-                            
                         }
 #elif  defined(SET_EC11)
                         if (!menu_mode) {
@@ -1191,16 +1188,16 @@ void app_main()
                                     ssd1306_clear_lines(6, 1);
                                     ssd1306_text_xy(mkLineCenter(stk, FONT_WIDTH), 1, 6, false);
                                 #endif*/
-                                if ((curFreq >= MIN_FREQ) && (curFreq <= MAX_FREQ)) {  
+                                if ((curFreq >= MIN_FREQ) && (curFreq <= MAX_FREQ)) {
                                     //if (enc_ != 0) {
-                                        //frc = txFreq + (txStep * abs(enc_ - enc_last));    
+                                        //frc = txFreq + (txStep * abs(enc_ - enc_last));
                                         frc += txStep * (enc_ - enc_last);
                                     //} else {
                                     //    frc = txFreq = txFreqDef;
                                     //}
                                     if (frc < MIN_FREQ) frc = MIN_FREQ;
                                     else
-                                    if (frc > MAX_FREQ) frc = MAX_FREQ;   
+                                    if (frc > MAX_FREQ) frc = MAX_FREQ;
                                     curFreq = frc;
 
                                     if (!tmr_ec11) tmr_ec11 = get_tmr(_700ms);
@@ -1211,9 +1208,9 @@ void app_main()
                         } else {
 
                         }
-#endif                        
+#endif
                     break;
-#ifdef SET_EC11                    
+#ifdef SET_EC11
                     case GPIO_INPUT_NONE:
                         if ((curFreq >= MIN_FREQ) && (curFreq <= MAX_FREQ)) {  
                             if (si_msg.val > 0) frc = si_msg.val;
@@ -1254,7 +1251,7 @@ void app_main()
                     float ff = frc;
                     sprintf(stk, "%.3f KHz", ff / 1000);
                     mkLineCenter(stk, FONT_WIDTH);
-                    ssd1306_text_xy(stk, 1, 8, true); 
+                    ssd1306_text_xy(stk, 1, OLED_LINE_FREQ, true); 
                 #endif
                 ets_printf("[%s] Set freq %u Hz, Step %u Hz, Enc %d\n",
                             TAGENC, curFreq, allStep[idxStep], enc_);
@@ -1278,8 +1275,9 @@ void app_main()
                 }
                 float vcc = (float)get_vcc();
                 vcc /= 1000;
-                sprintf(stk+strlen(stk),"\nInfo:%.1fV %.1f%cC", vcc, get_tChip(), 0x1f);
-
+                #ifndef OLED_128x32
+                    sprintf(stk+strlen(stk),"\nInfo:%.1fV %.1f%cC", vcc, get_tChip(), 0x1f);
+                #endif
                 ssd1306_text_xy(stk, 2, 2, false);
             }
             adc_tw = get_tmr(_1s);
@@ -1328,7 +1326,7 @@ void app_main()
     strcpy(stk, "Restart...");
 #ifdef SET_SSD1306    
     ssd1306_clear();
-    ssd1306_text_xy(mkLineCenter(stk, FONT_WIDTH), 1, 4, false);
+    ssd1306_text_xy(mkLineCenter(stk, FONT_WIDTH), 1, OLED_LINE_CENTER, false);
 #endif
 
     uint8_t cnt = 30;

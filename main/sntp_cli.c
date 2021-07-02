@@ -22,7 +22,7 @@ total_task++;
 
         time_t now = 0;
         struct tm timeinfo = {0};
-        uint8_t retry = 0, retry_max = 30;
+        uint8_t retry = 0, retry_max = 10;
 
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
 
@@ -49,7 +49,7 @@ total_task++;
             print_msg(0, TAGS, "The current date/time is: %s %s\n", strftime_buf, time_zone);
             setDateTimeOK = 1;
         } else {
-            print_msg(1, TAGS, "Error getting date/time from srv '%s %s'", sntp_server, time_zone);
+            print_msg(1, TAGS, "Error getting date/time from srv '%s %s'\n", sntp_server, time_zone);
         }
 
         sntp_stop();

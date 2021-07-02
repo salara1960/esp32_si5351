@@ -13,6 +13,9 @@
 #else
     #define OLED_MAX_STR 8
 #endif
+#define OLED_LINE_FREQ OLED_MAX_STR
+#define OLED_LINE_CENTER (OLED_MAX_STR >> 1)
+#define OLED_LINE_STEP OLED_MAX_STR - 1
 
 // SLA (0x3C) + WRITE_MODE (0x00) =  0x78 (0b01111000)
 #define OLED_I2C_ADDRESS   0x3C
@@ -36,10 +39,13 @@
 #define OLED_CMD_SET_COLUMN_RANGE       0x21    // can be used only in HORZ/VERT mode - follow with 0x00 and 0x7F = COL127
 #define OLED_CMD_SET_PAGE_RANGE         0x22    // can be used only in HORZ/VERT mode - follow with 0x00 and 0x07 = PAGE7
 
+#define OLED_CMD_SET_DEACTIVATE_SCROLL  0x2E
+#define OLED_CMD_SET_ACTIVATE_SCROLL    0x2F
+
 // Hardware Config (pg.31)
 #define OLED_CMD_SET_DISPLAY_START_LINE 0x40
 #define OLED_CMD_SET_SEGMENT_REMAP      0xA1
-#define OLED_CMD_SET_MUX_RATIO          0xA8    // follow with 0x3F = 64 MUX
+#define OLED_CMD_SET_MUX_RATIO          0xA8    // follow with 0x3F = 64 MUX or 1F = 32 MUX
 #define OLED_CMD_SET_COM_SCAN_MODE      0xC8
 #define OLED_CMD_SET_DISPLAY_OFFSET     0xD3    // follow with 0x00
 #define OLED_CMD_SET_COM_PIN_MAP        0xDA    // follow with 0x12
