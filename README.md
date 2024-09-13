@@ -35,7 +35,7 @@ make flash	- запись бинарного кода проекта в dataflas
 
 
 
-Connected si5351 to ESP32 : (I2C_NUM_0 on ESP2)
+Connected si5351 to ESP32 : (I2C_NUM_0 on ESP32)
 
 ```
 I2C_MASTER_SCL_PIN GPIO_NUM_22
@@ -45,7 +45,7 @@ Frequence on i2c bus 400000 Hz
 ````
 
 
-Connected display ssd1306 to ESP32 : (I2C_NUM_1 on ESP2)
+Connected display ssd1306 to ESP32 : (I2C_NUM_1 on ESP32)
 
 ```
 SDA_PIN GPIO_NUM_23
