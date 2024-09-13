@@ -34,3 +34,28 @@ make app	- компиляция проекта
 make flash	- запись бинарного кода проекта в dataflash
 
 
+
+Connected si5351 to ESP32 : (I2C_NUM_0 on ESP2)
+
+```
+I2C_MASTER_SCL_PIN GPIO_NUM_22
+I2C_MASTER_SDA_PIN GPIO_NUM_21
+
+Frequence on i2c bus 400000 Hz
+````
+
+
+Connected display ssd1306 to ESP32 : (I2C_NUM_1 on ESP2)
+
+```
+SDA_PIN GPIO_NUM_23
+SCL_PIN GPIO_NUM_18
+
+Frequence on i2c bus 400000 Hz
+```
+
+
+Add Si5351.pdf datasheet
+
+
+

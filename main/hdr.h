@@ -17,9 +17,9 @@
 //    #define WS_PRN
 #endif
 
-#define SET_IRED
-//#define SET_KBD
-#define SET_EC11
+//#define SET_IRED
+////#define SET_KBD
+//#define SET_EC11
 
 
 
